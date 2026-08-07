@@ -137,34 +137,21 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"*": {
+		"on_update": "frappe_connect.event_engine.dispatcher.on_doc_change",
+		"after_insert": "frappe_connect.event_engine.dispatcher.on_doc_change",
+	}
+}
 
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"frappe_connect.tasks.all"
-# 	],
-# 	"daily": [
-# 		"frappe_connect.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"frappe_connect.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"frappe_connect.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"frappe_connect.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"cron": {
+		"*/15 * * * *": ["frappe_connect.event_engine.dispatcher.run_scheduled_pulls"],
+	}
+}
 
 # Testing
 # -------
@@ -246,4 +233,3 @@ app_license = "mit"
 # ------------
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
-

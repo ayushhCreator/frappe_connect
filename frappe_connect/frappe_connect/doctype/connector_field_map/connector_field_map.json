@@ -1,0 +1,39 @@
+{
+ "actions": [],
+ "creation": "2026-08-07 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "frappe_fieldname",
+  "external_fieldname"
+ ],
+ "fields": [
+  {
+   "fieldname": "frappe_fieldname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Frappe Fieldname",
+   "reqd": 1
+  },
+  {
+   "fieldname": "external_fieldname",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "External Fieldname",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-07 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Frappe Connect",
+ "name": "Connector Field Map",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "ASC",
+ "states": []
+}
