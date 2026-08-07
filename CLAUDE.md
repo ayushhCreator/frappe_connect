@@ -24,7 +24,7 @@ notes (not duplicated here) — this file is architecture-as-built + gotchas.
 `bench new-app` creates a nested structure. Get this wrong and imports fail
 with `ModuleNotFoundError` at `bench migrate`:
 
-```
+```text
 apps/frappe_connect/
   pyproject.toml
   frappe_connect/                      <- pip package root ("frappe_connect")
@@ -51,6 +51,7 @@ extra `frappe_connect/frappe_connect/frappe_connect/` module folder.
 ## Status
 
 **Done (M1 + M2), all verified — migrate clean, 23/23 tests pass, ruff clean:**
+
 - DocTypes: Connector Configuration, Connector Field Map (child), Sync Log,
   Connector Sync Map — System Manager only, no undefined role
 - `connectors/base.py` — `Connector` ABC (`push`/`pull`) + `SyncResult`
@@ -78,6 +79,7 @@ extra `frappe_connect/frappe_connect/frappe_connect/` module folder.
 - `hooks.py` wired: `doc_events["*"]`, `scheduler_events.cron` every 15 min
 
 **Known gaps / not yet done:**
+
 - `connector_type` field is a bare Select with no options populated —
   needs a small doctype `.js` to fetch registry keys and set
   `frm.set_df_property('connector_type', 'options', [...])` dynamically
