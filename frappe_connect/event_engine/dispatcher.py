@@ -158,8 +158,18 @@ def _build_connector(configuration):
 	return connector_class(config=config, credentials=credentials)
 
 
+_HTML_FIELDTYPES = {"Text Editor", "HTML Editor"}
+
+
 def _map_frappe_to_external(doc, field_map):
-	return {row.external_fieldname: doc.get(row.frappe_fieldname) for row in field_map}
+	mapped = {}
+	for row in field_map:
+		value = doc.get(row.frappe_fieldname)
+		field = doc.meta.get_field(row.frappe_fieldname)
+		if field and field.fieldtype in _HTML_FIELDTYPES and isinstance(value, str):
+			value = frappe.utils.strip_html_tags(value).strip()
+		mapped[row.external_fieldname] = value
+	return mapped
 
 
 _INT_FIELDTYPES = {"Int", "Check"}

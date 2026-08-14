@@ -245,3 +245,26 @@ class TestOnDocChangeFiresOnce(FrappeTestCase):
 			self.assertEqual(len(calls_for_this_config), 1)
 		finally:
 			todo.delete()
+
+
+class TestMapFrappeToExternalStripsHtml(FrappeTestCase):
+	"""Caught live: pushing ToDo.description (a Text Editor field, stored as
+	raw HTML) put the Quill editor's wrapper markup straight into the target
+	Google Sheet cell instead of the plain text.
+	"""
+
+	def setUp(self):
+		self.field_map = [frappe._dict(frappe_fieldname="description", external_fieldname="desc")]
+		self.todo = frappe.get_doc(
+			{
+				"doctype": "ToDo",
+				"description": '<div class="ql-editor read-mode"><p>real push test</p></div>',
+			}
+		).insert()
+
+	def tearDown(self):
+		self.todo.delete()
+
+	def test_text_editor_field_stripped_to_plain_text(self):
+		mapped = dispatcher._map_frappe_to_external(self.todo, self.field_map)
+		self.assertEqual(mapped["desc"], "real push test")
