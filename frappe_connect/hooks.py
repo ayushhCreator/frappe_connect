@@ -140,7 +140,6 @@ app_license = "mit"
 doc_events = {
 	"*": {
 		"on_update": "frappe_connect.event_engine.dispatcher.on_doc_change",
-		"after_insert": "frappe_connect.event_engine.dispatcher.on_doc_change",
 	}
 }
 

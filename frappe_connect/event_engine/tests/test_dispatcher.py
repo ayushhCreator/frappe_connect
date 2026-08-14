@@ -205,3 +205,43 @@ class TestMapExternalToFrappeCastsTypes(FrappeTestCase):
 	def test_external_date_string_cast_to_date_object(self):
 		mapped = dispatcher._map_external_to_frappe({"due": "2026-01-15"}, self.configuration)
 		self.assertEqual(mapped["date"], frappe.utils.getdate("2026-01-15"))
+
+
+class TestOnDocChangeFiresOnce(FrappeTestCase):
+	"""Regression test: a real doc.insert() fires both after_insert and on_update
+	(run_post_save_methods runs on_update for the "save" action, which includes
+	inserts) - doc_events registering on_doc_change on both hooks double-pushed
+	every new record. Caught live via the Desk UI: a single new ToDo produced
+	two rows in the target Google Sheet. hooks.py now wires on_doc_change to
+	on_update only.
+	"""
+
+	def setUp(self):
+		self.configuration = frappe.get_doc(
+			{
+				"doctype": "Connector Configuration",
+				"connector_name": "Test Hook Fire Once Config",
+				"connector_type": "Test Echo",
+				"frappe_doctype": "ToDo",
+				"direction": "Push",
+			}
+		).insert()
+
+	def tearDown(self):
+		self.configuration.delete()
+
+	def test_creating_a_doc_enqueues_push_exactly_once(self):
+		# Isolate on this test's own configuration_name - a shared dev DB can have
+		# other real Connector Configurations also targeting ToDo/Push, and each
+		# is correctly entitled to its own enqueue.
+		with patch("frappe.enqueue") as mock_enqueue:
+			todo = frappe.get_doc({"doctype": "ToDo", "description": "hook fire once"}).insert()
+		try:
+			calls_for_this_config = [
+				c
+				for c in mock_enqueue.call_args_list
+				if c.kwargs.get("configuration_name") == self.configuration.name
+			]
+			self.assertEqual(len(calls_for_this_config), 1)
+		finally:
+			todo.delete()
