@@ -4,8 +4,8 @@ Native two-way sync hub for Frappe: push DocType changes out to SaaS tools
 (Google Sheets, Slack, ...), pull external changes back in. Config-driven —
 adding a connector is a new file, never a DocType/event-engine edit.
 
-Full PRD/HLD/LLD lives in the owning conversation history and `reference/`
-notes (not duplicated here) — this file is architecture-as-built + gotchas.
+Full PRD/HLD/LLD: `docs/PRD_HLD_LLD.md` — this file is architecture-as-built +
+gotchas, not a duplicate of that spec.
 
 ## Bench context
 
@@ -89,11 +89,55 @@ extra `frappe_connect/frappe_connect/frappe_connect/` module folder.
 - M5: packaging/demo/Marketplace submission — not started
 - No GitHub remote yet, nothing pushed
 
+## Architecture notes / footguns
+
+- `dispatcher.push_one(configuration_name, docname)` takes **strings** (it's a
+  `frappe.enqueue` target — args must be serializable). `dispatcher.pull_one(configuration)`
+  takes an **already-loaded doc**. Easy to swap by mistake — check the caller.
+- `webhooks.receive` imports `_map_external_to_frappe`, `_write_sync_log`, and
+  `upsert_record` directly from `dispatcher.py` (two of those are
+  underscore-private). Webhook and scheduled-pull intentionally share this one
+  upsert path — don't fork it, but know that changing those signatures breaks
+  webhooks silently (no import-time check).
+- `Connector Configuration.config` is a Code/JSON string field — callers
+  `json.loads` it. `credentials` / `webhook_secret` are Password fields; read
+  only via `get_decrypted_password(..., raise_exception=False)`, never
+  `doc.credentials` directly.
+- `Connector Sync Map` has no unique constraint on
+  `(connector_configuration, external_id)` — dedup relies entirely on the
+  `frappe.db.get_value` lookup inside `upsert_record`. Concurrent pulls/webhooks
+  for the same external record could double-insert.
+- `Sync Log` is insert-only (`in_create: 1`, sorted by `creation` not
+  `modified`); `status` is always derived from `SyncResult.status`, never set
+  directly by callers.
+- `Connector Configuration.connector_type` (Select, options unpopulated —
+  see Known gaps) must match a `registry.py` `@register("...")` key by
+  convention only; nothing validates the two stay in sync.
+
+## Testing conventions
+
+Split is by *what's under test*, not by directory (`event_engine/tests/`
+contains both kinds):
+
+- Anything touching Frappe (DB, doc events) → `frappe.tests.utils.FrappeTestCase`
+  with real DB inserts and manual `tearDown` (doctype `test_*.py`,
+  `event_engine/tests/test_dispatcher.py`).
+- Pure logic → plain `unittest.TestCase`, no DB/Frappe context
+  (`connectors/tests/test_base.py`, `test_registry.py`, `test_retry.py`,
+  `test_google_sheets.py`).
+- Google Sheets mocking recipe: `@patch(".google_sheets.build")` +
+  `@patch(".google_sheets.Credentials")`, drive
+  `service.spreadsheets.return_value.values.return_value.{get,append}.return_value.execute`.
+  Patch `connectors.retry.time.sleep` in retry tests to keep them fast.
+- `test_dispatcher.py` registers a throwaway `@register("Test Echo")`
+  connector so dispatcher logic can be tested without a real SaaS call.
+
 ## Commands
 
 ```bash
 bench --site mysite.localhost migrate
 bench --site mysite.localhost run-tests --app frappe_connect
+bench --site mysite.localhost run-tests --app frappe_connect --module frappe_connect.connectors.tests.test_retry
 ruff check frappe_connect/frappe_connect   # run from apps/frappe_connect/
 ruff format frappe_connect/frappe_connect
 ```
@@ -114,3 +158,46 @@ ruff format frappe_connect/frappe_connect
 - Never log `credentials`/`webhook_secret` values, even inside Sync Log
   `errors`
 - Every DocType and every non-trivial module ships a test
+
+## Available skills (global, `~/.agents/skills/`)
+
+Loaded on-demand by name/description, not always in context — invoke via
+Skill tool when the task matches:
+
+- `frappe-app-dev` — full-stack Frappe: doctypes, controllers/hooks,
+  whitelisted APIs, desk/portal UI, background jobs, tests, `bench` commands.
+  Default pick for most work in this repo.
+- `app-development` — app scaffolding, hooks.py patterns, service layers,
+  cross-cutting concerns (caching/logging/error handling).
+- `doctype-development` — schema design, child tables, controller lifecycle
+  (`validate`/`on_update`/etc).
+- `api-development` — REST/RPC endpoints, `@frappe.whitelist()`, auth/perms.
+- `testing` — `FrappeTestCase` vs plain `unittest`, fixtures, CI patterns.
+- `code-style` — general readability/structure rules; defer to
+  `frappe-app-dev` for anything Frappe-specific.
+- `quality-code-review` — Frappe/ERPNext-flavored review checklist
+  (correctness, security, perf, concurrency, API design). Use for reviewing
+  a diff/PR — run from a **fresh session**, not the implementing one.
+
+## Agentic workflow rules (this project)
+
+Distilled from the Claude Code / agentic-engineering course — apply, don't
+re-read the source:
+
+- New independent task/feature → fresh session. Don't pile unrelated work
+  into one context window (context rot).
+- For non-trivial changes: plan mode first, implement in small vertical
+  slices that each work end-to-end (e.g. one connector, one doctype field,
+  one dispatcher path at a time) — not one giant patch.
+- Reviewer ≠ implementer. Review a diff from a fresh session (or
+  `quality-code-review` skill), never self-review in the same context that
+  wrote the code.
+- Before implementing new Frappe patterns, check how core Frappe/ERPNext
+  does it first — imitate established conventions over inventing new ones.
+- Keep PRs small and reviewable; commit after each working phase, not at
+  the end of a whole milestone.
+- If this file and `docs/PRD_HLD_LLD.md` drift apart during implementation,
+  reconcile the spec before committing — don't let them silently diverge.
+- Keep this file curated, not exhaustive — only stable, always-true project
+  facts belong here; anything task-specific belongs in a skill or a one-off
+  prompt.
