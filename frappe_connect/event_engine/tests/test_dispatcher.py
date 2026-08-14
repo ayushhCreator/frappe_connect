@@ -131,9 +131,7 @@ class TestRetrySync(FrappeTestCase):
 			dispatcher.retry_sync(log.name)
 
 	def test_retry_push_requeues_same_docname(self):
-		log = self._make_log(
-			"Push", "Failed", errors=[{"record": {"docname": "TODO-1"}, "message": "boom"}]
-		)
+		log = self._make_log("Push", "Failed", errors=[{"record": {"docname": "TODO-1"}, "message": "boom"}])
 		with patch("frappe.enqueue") as mock_enqueue:
 			dispatcher.retry_sync(log.name)
 
