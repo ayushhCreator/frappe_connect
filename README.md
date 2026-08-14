@@ -1,5 +1,7 @@
 ### Frappe Connect
 
+[![CI](https://github.com/ayushhCreator/frappe_connect/actions/workflows/ci.yml/badge.svg)](https://github.com/ayushhCreator/frappe_connect/actions/workflows/ci.yml)
+
 Native two-way sync hub connecting Frappe DocTypes to external SaaS tools
 (Google Sheets, Slack, ...).
 
