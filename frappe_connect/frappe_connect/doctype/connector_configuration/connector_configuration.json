@@ -67,13 +67,13 @@
    "fieldname": "credentials",
    "fieldtype": "Password",
    "label": "Credentials",
-   "length": 0
+   "length": 8000
   },
   {
    "fieldname": "webhook_secret",
    "fieldtype": "Password",
    "label": "Webhook Secret",
-   "length": 0
+   "length": 8000
   },
   {
    "fieldname": "config",
