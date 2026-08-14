@@ -84,6 +84,9 @@ extra `frappe_connect/frappe_connect/frappe_connect/` module folder.
   registry, so adding a connector still never touches the DocType JSON
 - `dispatcher._cast_value()` — external pull/webhook payloads (all strings)
   get cast to the target field's real type before upsert
+- `connectors/rate_limit.py`'s `throttle()` — fixed-window limiter backed by
+  `frappe.cache()` (shared across RQ workers), called before every
+  `connector.push()`/`pull()`, keyed per Connector Configuration name
 
 **Known gaps / not yet done:**
 

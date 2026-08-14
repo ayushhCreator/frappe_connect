@@ -5,6 +5,7 @@ from frappe.utils.password import get_decrypted_password
 
 from frappe_connect.connectors.base import SyncResult
 from frappe_connect.connectors.exceptions import ConnectorError
+from frappe_connect.connectors.rate_limit import throttle
 from frappe_connect.event_engine.registry import get_connector_class
 
 
@@ -34,6 +35,7 @@ def push_one(configuration_name, docname):
 		doc = frappe.get_doc(configuration.frappe_doctype, docname)
 		connector = _build_connector(configuration)
 		mapped = _map_frappe_to_external(doc, configuration.field_map)
+		throttle(configuration.name)
 		result = connector.push([mapped])
 	except ConnectorError as e:
 		result.add_error({"docname": docname}, str(e))
@@ -92,6 +94,7 @@ def pull_one(configuration):
 
 	try:
 		connector = _build_connector(configuration)
+		throttle(configuration.name)
 		records, new_cursor = connector.pull(since=configuration.last_cursor or None)
 
 		for record in records:
