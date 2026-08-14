@@ -12,7 +12,7 @@ gotchas, not a duplicate of that spec.
 - Bench root: `~/The_Base/frappe-bench-2`, Frappe 15.104.0, bench 5.25.9
 - Site: `mysite.localhost`, `developer_mode: 1`
 - This app: `apps/frappe_connect` — own git repo (`bench new-app` auto-inits),
-  branch `develop`, no remote yet
+  branch `main`, pushed to https://github.com/ayushhCreator/frappe_connect
 - Reference-only clone (read, don't copy code): `../../reference/data_migration_tool`
   — the prior one-shot migration tool this hub evolved from. Its defects
   (undefined role breaking `bench migrate`, non-functional `api_methods` hook
@@ -77,6 +77,8 @@ extra `frappe_connect/frappe_connect/frappe_connect/` module folder.
   HMAC-SHA256 checked before anything is enqueued, rejects with
   `frappe.PermissionError` on bad signature)
 - `hooks.py` wired: `doc_events["*"]`, `scheduler_events.cron` every 15 min
+- `dispatcher.retry_sync()` + Sync Log "Retry Job" button — DLQ-style manual
+  retry for failed/partial syncs, re-enqueues `push_one`/`pull_one_by_name`
 
 **Known gaps / not yet done:**
 
@@ -87,7 +89,6 @@ extra `frappe_connect/frappe_connect/frappe_connect/` module folder.
 - M3: Slack connector — not started
 - M4: real end-to-end run against a live Google Sheet — only mocked so far
 - M5: packaging/demo/Marketplace submission — not started
-- No GitHub remote yet, nothing pushed
 
 ## Architecture notes / footguns
 
