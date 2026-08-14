@@ -1,4 +1,6 @@
+import json
 from typing import ClassVar
+from unittest.mock import patch
 
 import frappe
 from frappe.tests.utils import FrappeTestCase
@@ -92,3 +94,63 @@ class TestDispatcherPull(FrappeTestCase):
 
 		self.configuration.reload()
 		self.assertEqual(self.configuration.last_cursor, "cursor-1")
+
+
+class TestRetrySync(FrappeTestCase):
+	def setUp(self):
+		self.configuration = frappe.get_doc(
+			{
+				"doctype": "Connector Configuration",
+				"connector_name": "Test Retry Config",
+				"connector_type": "Test Echo",
+				"frappe_doctype": "ToDo",
+				"direction": "Both",
+			}
+		).insert()
+
+	def tearDown(self):
+		frappe.db.delete("Sync Log", {"connector_configuration": self.configuration.name})
+		self.configuration.delete()
+
+	def _make_log(self, direction, status, errors=None):
+		return frappe.get_doc(
+			{
+				"doctype": "Sync Log",
+				"connector_configuration": self.configuration.name,
+				"direction": direction,
+				"status": status,
+				"records_processed": 0,
+				"error_count": len(errors) if errors else 0,
+				"errors": json.dumps(errors) if errors else None,
+			}
+		).insert()
+
+	def test_retry_rejects_success_log(self):
+		log = self._make_log("Push", "Success")
+		with self.assertRaises(frappe.ValidationError):
+			dispatcher.retry_sync(log.name)
+
+	def test_retry_push_requeues_same_docname(self):
+		log = self._make_log(
+			"Push", "Failed", errors=[{"record": {"docname": "TODO-1"}, "message": "boom"}]
+		)
+		with patch("frappe.enqueue") as mock_enqueue:
+			dispatcher.retry_sync(log.name)
+
+		mock_enqueue.assert_called_once_with(
+			"frappe_connect.event_engine.dispatcher.push_one",
+			configuration_name=self.configuration.name,
+			docname="TODO-1",
+			queue="short",
+		)
+
+	def test_retry_pull_requeues_configuration(self):
+		log = self._make_log("Pull", "Failed", errors=[{"record": {}, "message": "boom"}])
+		with patch("frappe.enqueue") as mock_enqueue:
+			dispatcher.retry_sync(log.name)
+
+		mock_enqueue.assert_called_once_with(
+			"frappe_connect.event_engine.dispatcher.pull_one_by_name",
+			configuration_name=self.configuration.name,
+			queue="short",
+		)

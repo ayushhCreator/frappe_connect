@@ -44,6 +44,37 @@ def push_one(configuration_name, docname):
 	_write_sync_log(configuration.name, "Push", result, started_at)
 
 
+@frappe.whitelist()
+def retry_sync(sync_log_name):
+	"""Re-run a failed/partial Sync Log entry from the Desk UI's "Retry Job" button."""
+	log = frappe.get_doc("Sync Log", sync_log_name)
+	if log.status == "Success":
+		frappe.throw(frappe._("Nothing to retry - this sync already succeeded."))
+
+	if log.direction == "Push":
+		errors = json.loads(log.errors) if log.errors else []
+		docname = errors[0].get("record", {}).get("docname") if errors else None
+		if not docname:
+			frappe.throw(frappe._("Cannot determine which record to retry."))
+		frappe.enqueue(
+			"frappe_connect.event_engine.dispatcher.push_one",
+			configuration_name=log.connector_configuration,
+			docname=docname,
+			queue="short",
+		)
+	else:
+		frappe.enqueue(
+			"frappe_connect.event_engine.dispatcher.pull_one_by_name",
+			configuration_name=log.connector_configuration,
+			queue="short",
+		)
+
+
+def pull_one_by_name(configuration_name):
+	"""frappe.enqueue target - pull_one itself takes an already-loaded doc, not a string."""
+	pull_one(frappe.get_doc("Connector Configuration", configuration_name))
+
+
 def run_scheduled_pulls():
 	"""scheduler_events.cron entrypoint - pulls every enabled Pull/Both config."""
 	configuration_names = frappe.get_all(
