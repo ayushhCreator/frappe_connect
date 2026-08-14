@@ -1,9 +1,21 @@
 import importlib
 import pkgutil
 
+import frappe
+
 from frappe_connect import connectors
 
 CONNECTOR_REGISTRY = {}
+
+
+@frappe.whitelist()
+def get_connector_types():
+	"""Desk-only: powers Connector Configuration's connector_type dropdown.
+
+	Registry keys, not a stored list - adding connector #N never touches
+	this or the DocType JSON.
+	"""
+	return list(CONNECTOR_REGISTRY.keys())
 
 
 def register(connector_type):

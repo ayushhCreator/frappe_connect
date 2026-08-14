@@ -79,13 +79,14 @@ extra `frappe_connect/frappe_connect/frappe_connect/` module folder.
 - `hooks.py` wired: `doc_events["*"]`, `scheduler_events.cron` every 15 min
 - `dispatcher.retry_sync()` + Sync Log "Retry Job" button — DLQ-style manual
   retry for failed/partial syncs, re-enqueues `push_one`/`pull_one_by_name`
+- `registry.get_connector_types()` (whitelisted) + Connector Configuration's
+  `connector_type.js` `onload` — populates the Select's options from the live
+  registry, so adding a connector still never touches the DocType JSON
+- `dispatcher._cast_value()` — external pull/webhook payloads (all strings)
+  get cast to the target field's real type before upsert
 
 **Known gaps / not yet done:**
 
-- `connector_type` field is a bare Select with no options populated —
-  needs a small doctype `.js` to fetch registry keys and set
-  `frm.set_df_property('connector_type', 'options', [...])` dynamically
-  (so adding a connector still never touches the DocType JSON)
 - M3: Slack connector — not started
 - M4: real end-to-end run against a live Google Sheet — only mocked so far
 - M5: packaging/demo/Marketplace submission — not started
