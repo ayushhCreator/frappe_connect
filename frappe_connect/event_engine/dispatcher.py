@@ -96,7 +96,7 @@ def pull_one(configuration):
 
 		for record in records:
 			try:
-				mapped = _map_external_to_frappe(record, configuration.field_map)
+				mapped = _map_external_to_frappe(record, configuration)
 				external_id = record.get("id") or record.get("external_id")
 				upsert_record(configuration, mapped, external_id)
 				result.records_processed += 1
@@ -159,8 +159,39 @@ def _map_frappe_to_external(doc, field_map):
 	return {row.external_fieldname: doc.get(row.frappe_fieldname) for row in field_map}
 
 
-def _map_external_to_frappe(record, field_map):
-	return {row.frappe_fieldname: record.get(row.external_fieldname) for row in field_map}
+_INT_FIELDTYPES = {"Int", "Check"}
+_FLOAT_FIELDTYPES = {"Currency", "Float", "Percent"}
+
+
+def _cast_value(value, fieldtype):
+	"""External payloads (e.g. Google Sheets cell values) arrive as strings -
+	cast to the target field's real type so numeric/date fields don't fail
+	DocType validation on upsert.
+	"""
+	if value in (None, ""):
+		return value
+	try:
+		if fieldtype in _INT_FIELDTYPES:
+			return int(float(value))
+		if fieldtype in _FLOAT_FIELDTYPES:
+			return float(value)
+		if fieldtype == "Date":
+			return frappe.utils.getdate(value)
+		if fieldtype == "Datetime":
+			return frappe.utils.get_datetime(value)
+	except (TypeError, ValueError) as e:
+		raise ValueError(f"Cannot cast {value!r} to {fieldtype}: {e}")
+	return value
+
+
+def _map_external_to_frappe(record, configuration):
+	meta = frappe.get_meta(configuration.frappe_doctype)
+	mapped = {}
+	for row in configuration.field_map:
+		field = meta.get_field(row.frappe_fieldname)
+		fieldtype = field.fieldtype if field else None
+		mapped[row.frappe_fieldname] = _cast_value(record.get(row.external_fieldname), fieldtype)
+	return mapped
 
 
 def _write_sync_log(configuration_name, direction, result, started_at):

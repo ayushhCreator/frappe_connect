@@ -1,4 +1,5 @@
 import json
+import unittest
 from typing import ClassVar
 from unittest.mock import patch
 
@@ -152,3 +153,55 @@ class TestRetrySync(FrappeTestCase):
 			configuration_name=self.configuration.name,
 			queue="short",
 		)
+
+
+class TestCastValue(unittest.TestCase):
+	"""Pure logic, no DB - external payloads are always strings, cast to the target fieldtype."""
+
+	def test_passes_through_empty_values(self):
+		self.assertIsNone(dispatcher._cast_value(None, "Currency"))
+		self.assertEqual(dispatcher._cast_value("", "Int"), "")
+
+	def test_casts_int_and_check(self):
+		self.assertEqual(dispatcher._cast_value("42", "Int"), 42)
+		self.assertEqual(dispatcher._cast_value("1", "Check"), 1)
+
+	def test_casts_currency_float_percent(self):
+		self.assertEqual(dispatcher._cast_value("150.00", "Currency"), 150.0)
+		self.assertEqual(dispatcher._cast_value("3.5", "Float"), 3.5)
+		self.assertEqual(dispatcher._cast_value("12", "Percent"), 12.0)
+
+	def test_casts_date_and_datetime(self):
+		self.assertEqual(dispatcher._cast_value("2026-01-15", "Date"), frappe.utils.getdate("2026-01-15"))
+		self.assertEqual(
+			dispatcher._cast_value("2026-01-15T10:30:00Z", "Datetime"),
+			frappe.utils.get_datetime("2026-01-15T10:30:00Z"),
+		)
+
+	def test_leaves_unknown_fieldtype_untouched(self):
+		self.assertEqual(dispatcher._cast_value("hello", "Data"), "hello")
+
+	def test_raises_on_uncastable_value(self):
+		with self.assertRaises(ValueError):
+			dispatcher._cast_value("not-a-number", "Currency")
+
+
+class TestMapExternalToFrappeCastsTypes(FrappeTestCase):
+	def setUp(self):
+		self.configuration = frappe.get_doc(
+			{
+				"doctype": "Connector Configuration",
+				"connector_name": "Test Cast Config",
+				"connector_type": "Test Echo",
+				"frappe_doctype": "ToDo",
+				"direction": "Pull",
+				"field_map": [{"frappe_fieldname": "date", "external_fieldname": "due"}],
+			}
+		).insert()
+
+	def tearDown(self):
+		self.configuration.delete()
+
+	def test_external_date_string_cast_to_date_object(self):
+		mapped = dispatcher._map_external_to_frappe({"due": "2026-01-15"}, self.configuration)
+		self.assertEqual(mapped["date"], frappe.utils.getdate("2026-01-15"))

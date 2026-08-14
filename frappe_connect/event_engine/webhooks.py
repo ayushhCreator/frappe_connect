@@ -48,7 +48,7 @@ def process_webhook_payload(connector_name, payload):
 	result = SyncResult()
 
 	try:
-		mapped = _map_external_to_frappe(payload, configuration.field_map)
+		mapped = _map_external_to_frappe(payload, configuration)
 		external_id = payload.get("id") or payload.get("external_id")
 		upsert_record(configuration, mapped, external_id)
 		result.records_processed = 1
